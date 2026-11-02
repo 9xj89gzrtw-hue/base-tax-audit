@@ -79,6 +79,7 @@ export function buildLedger({ wallet, txs, transfers }) {
         to: seed.to,
         feeWei: 0n,
         feeUsd: 0,
+        feeSource: null,
         sent: [],
         received: [],
         priceSources: new Set(),
@@ -104,6 +105,7 @@ export function buildLedger({ wallet, txs, transfers }) {
       row.feeWei = BigInt(tx.fee.value);
       const p = priceOf('ETH', tx, 0);
       row.feeUsd = (Number(row.feeWei) / 1e18) * p.price;
+      row.feeSource = p.source;
       row.priceSources.add(p.source);
     }
 
@@ -115,8 +117,9 @@ export function buildLedger({ wallet, txs, transfers }) {
     }
     if (value > 0n) {
       const p = priceOf('ETH', tx, 0);
-      if (to === w) row.received.push({ symbol: 'ETH', decimals: 18, amount: value, usd: (Number(value) / 1e18) * p.price, counterparty: from, isContract: tx.from && tx.from.is_contract });
-      if (from === w) row.sent.push({ symbol: 'ETH', decimals: 18, amount: value, usd: (Number(value) / 1e18) * p.price, counterparty: to, isContract: tx.to && tx.to.is_contract });
+      const usd = (Number(value) / 1e18) * p.price;
+      if (to === w) row.received.push({ symbol: 'ETH', decimals: 18, amount: value, usd, source: p.source, counterparty: from, isContract: tx.from && tx.from.is_contract });
+      if (from === w) row.sent.push({ symbol: 'ETH', decimals: 18, amount: value, usd, source: p.source, counterparty: to, isContract: tx.to && tx.to.is_contract });
       row.priceSources.add(p.source);
     }
   }
@@ -152,10 +155,10 @@ export function buildLedger({ wallet, txs, transfers }) {
     row.priceSources.add(p.source);
 
     if (to === w) {
-      row.received.push({ symbol: tk.symbol || 'TOKEN', decimals, amount, usd, counterparty: from, isContract: tr.from && tr.from.is_contract, address: tk.address_hash });
+      row.received.push({ symbol: tk.symbol || 'TOKEN', decimals, amount, usd, source: p.source, counterparty: from, isContract: tr.from && tr.from.is_contract, address: tk.address_hash });
     }
     if (from === w) {
-      row.sent.push({ symbol: tk.symbol || 'TOKEN', decimals, amount, usd, counterparty: to, isContract: tr.to && tr.to.is_contract, address: tk.address_hash });
+      row.sent.push({ symbol: tk.symbol || 'TOKEN', decimals, amount, usd, source: p.source, counterparty: to, isContract: tr.to && tr.to.is_contract, address: tk.address_hash });
     }
   }
 
@@ -185,6 +188,7 @@ export function buildLedger({ wallet, txs, transfers }) {
       feeWei: r.feeWei,
       feeEth: Number(r.feeWei) / 1e18,
       feeUsd: r.feeUsd,
+      feeSource: r.feeSource,
       netWorthUsd: recvSum - sentSum,
       priceSources: [...r.priceSources].filter(Boolean),
       description: describe(r),
@@ -197,41 +201,81 @@ export function buildLedger({ wallet, txs, transfers }) {
 }
 
 /**
- * In a swap the two legs are worth the same thing. When one leg has no market rate but the other
- * does, the unpriced leg's value is not unknown — it is whatever the priced leg paid. Back-filling
- * it turns "sent 0.01 ETH, received an unpriced token, net -$23" into a balanced trade, which is
- * what actually happened. Marked `implied` so it is never mistaken for an observed price.
+ * In a swap the two legs are worth the same thing. Which leg to believe is the whole question.
+ *
+ * `stable` ($1 by definition) and `historic` (the rate recorded on that very transaction) are
+ * authoritative. `spot` is today's rate, and it drifts from the rate the trade actually executed
+ * at: valuing the token leg at spot while the stablecoin leg is exactly $1 leaves a phantom
+ * gain or loss of a percent or two on every swap. A 332.67 USDC -> XDP trade showed up as
+ * -$1.61 purely from that drift.
+ *
+ * So: whenever one side is authoritative and the other side is spot or unknown, the soft side
+ * is repriced to whatever the authoritative side says the trade was worth. Marked `implied` so
+ * it is never mistaken for an observed price. Rows where neither side is authoritative are left
+ * alone — inventing a price there would be worse than leaving the drift visible.
  */
+const AUTHORITATIVE = new Set(['stable', 'historic']);
+
+const sumUsd = (legs) => legs.reduce((a, b) => a + (b.usd > 0 ? b.usd : 0), 0);
+
+function repriceLegs(legs, total) {
+  if (!legs.length || !(total > 0)) return false;
+  const units = legs.map((l) => Number(l.amount) / 10 ** l.decimals);
+  const sumUnits = units.reduce((a, b) => a + b, 0);
+  if (!(sumUnits > 0)) return false;
+
+  // Weight by existing spot value when there is one, so two soft legs keep their relative
+  // proportion; fall back to unit count when neither had any price at all.
+  const spot = legs.map((l) => (l.usd > 0 ? l.usd : 0));
+  const sumSpot = spot.reduce((a, b) => a + b, 0);
+  const weights = sumSpot > 0 ? spot.map((s) => s / sumSpot) : units.map((u) => u / sumUnits);
+
+  legs.forEach((l, i) => {
+    l.usd = weights[i] * total;
+    l.source = 'implied';
+    l.implied = true;
+  });
+  return true;
+}
+
 function implySwapPrices(rows) {
   for (const r of rows) {
     if (r.type !== 'trade') continue;
-    const sentPriced = r.sent.filter((x) => x.usd > 0);
-    const sentUnpriced = r.sent.filter((x) => !(x.usd > 0));
-    const recvPriced = r.received.filter((x) => x.usd > 0);
-    const recvUnpriced = r.received.filter((x) => !(x.usd > 0));
 
-    let total = 0;
-    let target = null;
-    if (recvUnpriced.length && !recvPriced.length && sentPriced.length) {
-      total = sentPriced.reduce((a, b) => a + b.usd, 0);
-      target = recvUnpriced;
-    } else if (sentUnpriced.length && !sentPriced.length && recvPriced.length) {
-      total = recvPriced.reduce((a, b) => a + b.usd, 0);
-      target = sentUnpriced;
+    const isAuth = (l) => AUTHORITATIVE.has(l.source);
+    const sentAuth = r.sent.filter(isAuth);
+    const recvAuth = r.received.filter(isAuth);
+    const sentSoft = r.sent.filter((l) => !isAuth(l));
+    const recvSoft = r.received.filter((l) => !isAuth(l));
+
+    const sentTotal = sumUsd(r.sent);
+    const recvTotal = sumUsd(r.received);
+    const sentAuthUsd = sumUsd(sentAuth);
+    const recvAuthUsd = sumUsd(recvAuth);
+
+    if (sentAuthUsd > 0 && recvAuthUsd === 0) {
+      // Everything that went out is anchored. What came back is worth what went out.
+      repriceLegs(recvSoft, sentTotal);
+    } else if (recvAuthUsd > 0 && sentAuthUsd === 0) {
+      repriceLegs(sentSoft, recvTotal);
+    } else if (sentAuthUsd > 0 && recvAuthUsd > 0) {
+      // Both sides anchored. Only a one-sided soft leg can absorb the remainder; with soft legs
+      // on both sides there is no basis for choosing which to shrink, so leave the row alone.
+      if (recvSoft.length && !sentSoft.length) repriceLegs(recvSoft, sentAuthUsd - recvAuthUsd);
+      else if (sentSoft.length && !recvSoft.length) repriceLegs(sentSoft, recvAuthUsd - sentAuthUsd);
+    } else if (recvSoft.length && recvTotal === 0 && sentTotal > 0) {
+      // Neither side anchored, but one side is wholly unpriced. In a swap that leg is worth
+      // exactly what the priced leg paid — there is no competing estimate to disagree with.
+      repriceLegs(recvSoft, sentTotal);
+    } else if (sentSoft.length && sentTotal === 0 && recvTotal > 0) {
+      repriceLegs(sentSoft, recvTotal);
     }
-    if (!target || total <= 0) continue;
 
-    const units = target.map((x) => Number(x.amount) / 10 ** x.decimals);
-    const sumUnits = units.reduce((a, b) => a + b, 0);
-    if (sumUnits <= 0) continue;
-
-    target.forEach((x, i) => {
-      x.usd = (units[i] / sumUnits) * total;
-      x.implied = true;
-    });
-    r.priceSources = [...new Set([...r.priceSources.filter((s) => s !== 'unknown'), 'implied'])];
-    r.netWorthUsd =
-      r.received.reduce((a, b) => a + b.usd, 0) - r.sent.reduce((a, b) => a + b.usd, 0);
+    r.netWorthUsd = sumUsd(r.received) - sumUsd(r.sent);
+    r.implied = r.sent.some((l) => l.implied) || r.received.some((l) => l.implied);
+    r.priceSources = [
+      ...new Set([r.feeSource, ...r.sent.map((l) => l.source), ...r.received.map((l) => l.source)]),
+    ].filter(Boolean);
   }
 }
 
@@ -422,6 +466,7 @@ export function toFlat(rows) {
       continue;
     }
     for (const l of legs) {
+      const src = [...new Set([l.source, r.feeSource].filter(Boolean))].join('|');
       out.push(csvLine([
         r.date, r.type, l.symbol, l.dir,
         fmtAmount(l.amount, l.decimals, 10),
@@ -430,7 +475,7 @@ export function toFlat(rows) {
         r.method,
         r.feeEth ? r.feeEth.toFixed(12) : '',
         r.feeUsd ? r.feeUsd.toFixed(4) : '',
-        r.txHash, r.block, r.priceSources.join('|'),
+        r.txHash, r.block, src,
       ]));
     }
   }
@@ -454,7 +499,11 @@ export function summarize(rows, result) {
     if (!byYear.has(y)) byYear.set(y, { count: 0, volume: 0, gas: 0 });
     const b = byYear.get(y);
     b.count++;
-    b.volume += Math.abs(r.netWorthUsd);
+    // Gross movement, not net: a $400 swap that balances to $0 still moved $400. Summing the net
+    // would report a busy trading wallet as having moved nothing at all.
+    const sentUsd = r.sent.reduce((a, x) => a + x.usd, 0);
+    const recvUsd = r.received.reduce((a, x) => a + x.usd, 0);
+    b.volume += Math.max(sentUsd, recvUsd || 0);
     b.gas += r.feeUsd;
     gasUsd += r.feeUsd;
   }

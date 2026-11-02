@@ -551,7 +551,7 @@ function renderTax() {
           <td class="num">${esc(sent || '—')}</td>
           <td class="num">${esc(recv || '—')}</td>
           <td class="num right">${r.feeEth ? r.feeEth.toFixed(6) : '—'}</td>
-          <td class="num right" style="color:${net < 0 ? 'var(--danger)' : 'inherit'}">${net ? usd(net) : '—'}</td>
+          <td class="num right" style="color:${net < 0 ? 'var(--danger)' : 'inherit'}">${r.type === 'trade' || net ? usd(net) : '—'}</td>
           <td><span class="pill pill-mute" style="font-size:10.5px">${esc(r.priceSources.join('+') || '—')}</span></td>
         </tr>`;
       })
@@ -562,7 +562,7 @@ function renderTax() {
   const truncated = rows.length > 200;
   const cap = state.pro ? PRO_ROWS : FREE_ROWS;
   const caveats = [];
-  if (sum.impliedRows) caveats.push(`${sum.impliedRows} swap row${sum.impliedRows === 1 ? '' : 's'} priced from the other leg`);
+  if (sum.impliedRows) caveats.push(`${sum.impliedRows} swap row${sum.impliedRows === 1 ? '' : 's'} valued from the other side of the trade`);
   if (sum.unpriced) caveats.push(`${sum.unpriced.toFixed(2)} units disposed at no market rate — excluded from gains, not written off`);
   if (sum.unmatched) caveats.push(`${sum.unmatched.toFixed(2)} units disposed with no matching purchase inside the scanned window`);
 
