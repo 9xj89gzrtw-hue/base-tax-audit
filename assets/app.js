@@ -545,14 +545,16 @@ function renderTax() {
         const sent = r.sent.map((x) => `${formatUnits(x.amount, x.decimals)} ${x.symbol}`).join(' + ');
         const recv = r.received.map((x) => `${formatUnits(x.amount, x.decimals)} ${x.symbol}`).join(' + ');
         const net = r.netWorthUsd;
+        // The split date is only used by the card layout on a phone, where the row is not a table.
+        const dateCell = esc(r.date || '');
         return `<tr>
-          <td class="num">${esc(r.date)}</td>
-          <td><span class="pill pill-mute">${esc(r.type)}</span></td>
-          <td class="num">${esc(sent || '—')}</td>
-          <td class="num">${esc(recv || '—')}</td>
-          <td class="num right">${r.feeEth ? r.feeEth.toFixed(6) : '—'}</td>
-          <td class="num right" style="color:${net < 0 ? 'var(--danger)' : 'inherit'}">${r.type === 'trade' || net ? usd(net) : '—'}</td>
-          <td><span class="pill pill-mute" style="font-size:10.5px">${esc(r.priceSources.join('+') || '—')}</span></td>
+          <td class="num" data-label="Date">${dateCell}</td>
+          <td data-label="Type"><span class="pill pill-mute">${esc(r.type)}</span></td>
+          <td class="num" data-label="Sent">${esc(sent || '—')}</td>
+          <td class="num" data-label="Received">${esc(recv || '—')}</td>
+          <td class="num right" data-label="Fee">${r.feeEth ? r.feeEth.toFixed(6) : '—'}</td>
+          <td class="num right" data-label="Net" style="color:${net < 0 ? 'var(--danger)' : 'inherit'}">${r.type === 'trade' || net ? usd(net) : '—'}</td>
+          <td data-label="Priced by"><span class="pill pill-mute" style="font-size:10.5px">${esc(r.priceSources.join('+') || '—')}</span></td>
         </tr>`;
       })
       .join('');

@@ -355,6 +355,24 @@ footer .spacer { flex: 1; }
      which repeats what the spender name already says. */
   #tbl-approvals th:nth-child(3), #tbl-approvals td:nth-child(3) { display: none; }
   #tbl-approvals { min-width: 460px; }
+  /* Seven numeric columns do not fit a phone, and sideways-scrolling a tax ledger is unusable.
+     Below 620px each row becomes a labelled card instead of a table row. */
+  #tbl-tax { min-width: 0; }
+  #tbl-tax thead { display: none; }
+  #tbl-tax, #tbl-tax tbody, #tbl-tax tr, #tbl-tax td { display: block; width: 100%; }
+  #tbl-tax tr { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+  #tbl-tax tr:last-child { border-bottom: 0; }
+  #tbl-tax td {
+    display: flex; gap: 10px; align-items: baseline;
+    padding: 2px 0; border: 0; text-align: left; white-space: normal;
+  }
+  #tbl-tax td.right { text-align: left; }
+  #tbl-tax td::before {
+    content: attr(data-label);
+    flex: 0 0 74px; color: var(--text-3);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .04em;
+  }
+  #tbl-tax td.num { white-space: normal; overflow-wrap: anywhere; }
   .toolbar { padding: 10px; gap: 8px; }
   .toolbar .spacer { display: none; }
   .brand .sub { display: none; }
