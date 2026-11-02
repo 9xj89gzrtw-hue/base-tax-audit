@@ -55,7 +55,7 @@ See [`ENGINEERING_NOTES.md`](../ENGINEERING_NOTES.md) for the full rationale and
 
 | Milestone | Time |
 |---|---|
-| Balance + unlimited approvals | **300 – 770 ms** |
+| Balance + unlimited approvals | **300 – 1200 ms** |
 | Full token coverage | 2.7 – 12 s |
 | Tax ledger | 8 – 18 s |
 | Cached re-scan | **432 ms** |
