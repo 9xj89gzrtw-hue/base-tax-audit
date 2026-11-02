@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Base Wallet Guard &amp; Tax CSV Studio</title>
+<meta name="description" content="Scan any Base wallet for unlimited token approvals and export its full transaction history as a tax-ready CSV or XLSX. No account, no key, no upload.">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="color-scheme" content="light">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f172a'/%3E%3Cpath d='M16 7l7 4v6c0 4-3 6.5-7 8-4-1.5-7-4-7-8v-6l7-4z' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <div class="brand">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <rect x="1" y="1" width="22" height="22" rx="6" fill="#0f172a"/>
+        <path d="M12 5.5l4.8 2.7v4.1c0 2.7-2 4.4-4.8 5.4-2.8-1-4.8-2.7-4.8-5.4V8.2L12 5.5z" stroke="#fff" stroke-width="1.5"/>
+      </svg>
+      <span>Wallet Guard</span>
+      <span class="sep">/</span>
+      <span class="sub">Tax Studio</span>
+    </div>
+    <nav class="nav">
+      <a href="#scanner">Scanner</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#method">Method</a>
+      <button class="btn btn-sm nav-cta" id="licensestate">Free tier</button>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section class="hero wrap" id="scanner">
+  <div class="eyebrow"><span class="dot"></span>Live Base mainnet — no account, no key, nothing uploaded</div>
+  <h1>See every unlimited token approval on a Base wallet, then export its history as a tax file.</h1>
+  <p class="lede">
+    Paste any <code>0x</code> address. The scan reads live balances, recent activity and current
+    ERC-20 allowances straight from Base, and prices the exposure. Export the ledger as CSV or XLSX
+    for a filing, or clear the approvals that put the wallet at risk.
+  </p>
+
+  <form class="scanbar" id="scanform" autocomplete="off">
+    <input id="addr" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
+           placeholder="0x0000000000000000000000000000000000000000" aria-label="Wallet address">
+    <button class="btn btn-primary" type="submit" id="scanbtn">Scan wallet</button>
+  </form>
+
+  <div class="hint">
+    <span>Real wallets with live activity:</span>
+    <button type="button" data-addr="0xB2Da8A3a86ee0b3C5334B9bC02E5A76FF0419020">0xB2Da…9020</button>
+    <button type="button" data-addr="0x326e6a8B66ef51B24C140c874aeBE9e5248d494B">0x326e…494B</button>
+    <button type="button" data-addr="0x137f3f05A341982C14aab1839C28EbC0523827C5">0x137f…27C5</button>
+  </div>
+</section>
+
+<section class="wrap" id="results" aria-live="polite">
+  <div class="statusline" id="status">
+    <span class="spin"></span><span id="statustext">Reading the chain</span>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="approvals">Approvals <span class="count" id="c-approvals">0</span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="activity">Activity <span class="count" id="c-activity">0</span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="tax">Tax export <span class="count" id="c-tax">0</span></button>
+  </div>
+
+  <div class="panel on" id="panel-approvals">
+    <div class="toolbar">
+      <span id="matrix" style="font-size:13px;color:var(--text-2)"></span>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" id="copycalldata">Copy approve(0) calldata</button>
+      <button class="btn btn-sm btn-danger" id="batchrevoke">Revoke all high-risk</button>
+    </div>
+    <div class="emptyslot" id="empty-approvals"></div>
+    <div class="tablewrap" id="wrap-approvals"><table id="tbl-approvals">
+      <thead><tr>
+        <th>Token</th><th>Spender</th><th>Kind</th><th class="right">Allowance</th>
+        <th>Risk</th><th class="right">Exposed</th><th class="right"></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="note" id="approvalsnote"></div>
+  </div>
+
+  <div class="panel" id="panel-activity">
+    <div class="emptyslot" id="empty-activity"></div>
+    <div class="tablewrap" id="wrap-activity"><table id="tbl-activity">
+      <thead><tr>
+        <th>Date</th><th>Type</th><th>Method</th><th>Counterparty</th>
+        <th class="right">Value</th><th class="right">Fee</th><th></th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="note" id="activitynote"></div>
+  </div>
+
+  <div class="panel" id="panel-tax">
+    <div class="toolbar">
+      <label>Year
+        <select id="year"></select>
+      </label>
+      <label>Format
+        <select id="format">
+          <option value="koinly">Koinly CSV</option>
+          <option value="cointracker">CoinTracker CSV</option>
+          <option value="xlsx">Excel XLSX (4 sheets)</option>
+          <option value="flat">Flat ledger CSV</option>
+        </select>
+      </label>
+      <span class="spacer"></span>
+      <button class="btn btn-sm" id="exportbtn">Export</button>
+      <button class="btn btn-sm btn-primary" id="deepexportbtn">Full history</button>
+    </div>
+    <div class="emptyslot" id="empty-tax"></div>
+    <div class="tablewrap" id="wrap-tax"><table id="tbl-tax">
+      <thead><tr>
+        <th>Date</th><th>Type</th><th>Sent</th><th>Received</th>
+        <th class="right">Fee</th><th class="right">Net</th><th>Priced by</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <div class="note" id="taxnote"></div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <h2>One scan is free. One payment unlocks the rest.</h2>
+    <p class="lede">No subscription, no account, no card. The licence is a Base transaction, verified in the browser and re-checkable from any device.</p>
+    <div class="plans">
+      <div class="plan">
+        <div class="tier">Free</div>
+        <div class="price">$0</div>
+        <div class="desc">Enough to answer the urgent question: is my money exposed right now?</div>
+        <ul>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#047857" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Full approval scan</b> — every token held, against every verified spender</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#047857" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Last 50 transactions</b> with fees and USD value</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#047857" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Export the first 50 rows</b> to CSV</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#047857" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Revoke one approval</b> from the browser wallet</span></li>
+        </ul>
+        <div class="cta"><button class="btn" style="width:100%" id="freefocus">Start a scan</button></div>
+      </div>
+      <div class="plan pro">
+        <div class="tier">Pro</div>
+        <div class="price">$9 <span>USDC on Base, once</span></div>
+        <div class="desc">For the filing, and for clearing a wallet properly rather than one approval at a time.</div>
+        <ul>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Up to 10,000 transactions</b> across 2025–2026, paginated in full</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>FIFO cost basis</b> with realised gains and open lots</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Koinly, CoinTracker and XLSX</b> output, plus a flat ledger</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 8.5l3.2 3L13 4.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Batch revoke</b> every unlimited approval in one sequence</span></li>
+        </ul>
+        <div class="cta"><button class="btn btn-primary" style="width:100%" id="buybtn">Pay $9 in USDC</button></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="method" style="padding:8px 24px 0">
+  <div class="note" style="margin-top:0">
+    <strong>How the approval check works.</strong> A complete approval history needs an archive-node
+    log sweep over the wallet's whole lifetime, and every free public Base RPC caps that at between
+    10 and 50,000 blocks — Base produces about 43,200 blocks a day. So instead of scanning history,
+    this page asks the chain a better question: <em>what is the allowance right now?</em> It reads
+    <code>allowance(owner, spender)</code> for every token the wallet holds against every spender in a
+    verified registry of Base routers, aggregators, lending markets and marketplaces, plus every
+    contract this wallet has interacted with. A revoked approval reads zero and is dropped. The one
+    case that escapes is an approval to a contract the wallet never transacted with directly.
+  </div>
+  <div class="note">
+    <strong>How the tax figures are priced.</strong> Stablecoins are taken at $1.00. ETH and WETH use
+    the historic ETH/USD rate recorded on each transaction. Other ERC-20 lots use the token's current
+    rate and are marked <code>spot</code> in the export, so a preparer can substitute their exchange's
+    historical prices on exactly those rows.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Base Wallet Guard &amp; Tax CSV Studio</span>
+    <span class="spacer"></span>
+    <span>Data: Base RPC &amp; Blockscout. Runs entirely in the browser.</span>
+    <a href="https://base.blockscout.com" target="_blank" rel="noopener">Explorer</a>
+  </div>
+</footer>
+
+<div class="modal" id="paymodal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <h3 id="modal-title">Unlock Pro</h3>
+    <p id="modal-body">Send $9 USDC on Base to the address below, then paste the transaction hash. It is verified on-chain here, so there is nothing to sign up for.</p>
+    <div class="kv">
+      <div><span>Network</span><span>Base (8453)</span></div>
+      <div><span>Asset</span><span>USDC</span></div>
+      <div><span>Amount</span><span>9.00</span></div>
+      <div><span>To</span><span id="payto">0x72Aa6edDE71B94f6b99c8e52EdC02B5C75F74d1a</span></div>
+    </div>
+    <div class="field">
+      <label for="txhash">Transaction hash</label>
+      <input id="txhash" type="text" placeholder="0x…" spellcheck="false">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modal-cancel">Close</button>
+      <button class="btn btn-accent" id="modal-verify">Verify and unlock</button>
+    </div>
+    <div class="modal-actions" style="margin-top:8px">
+      <button class="btn btn-primary" id="modal-pay" style="width:100%">Pay with browser wallet</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module" src="assets/app.js"></script>
+</body>
+</html>
