@@ -1,0 +1,29 @@
+{
+  "name": "base-tax-audit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Read-only Base mainnet ERC-20 allowance scanner and wallet guard, with a stdio MCP server over the same engine.",
+  "homepage": "https://9xj89gzrtw-hue.github.io/base-tax-audit/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/9xj89gzrtw-hue/base-tax-audit.git"
+  },
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "base-wallet-guard": "mcp/server.mjs"
+  },
+  "files": [
+    "mcp/server.mjs",
+    "assets/lib"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "mcp": "node mcp/server.mjs",
+    "test:mcp": "node tests/mcp-smoke.mjs",
+    "test:revoke": "node tests/revoke-one-click.mjs",
+    "test:pay": "node tests/one-click-pay.mjs"
+  }
+}

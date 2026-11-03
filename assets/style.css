@@ -99,6 +99,10 @@ code, .mono { font-family: var(--mono); font-variant-ligatures: none; }
 .btn-ghost:hover { background: var(--surface-2); border-color: transparent; }
 .btn-danger { color: var(--danger); border-color: #fecaca; background: #fff; }
 .btn-danger:hover { background: var(--danger-soft); border-color: #fca5a5; }
+/* A locked Pro action still reads as an action, not as a dead grey pill: the
+   label says what it does and what it costs, and clicking opens the licence sheet. */
+.btn-danger.is-locked { color: var(--danger); border-color: #fecaca; background: var(--danger-soft); }
+.btn-danger.is-locked:hover { border-color: #fca5a5; background: #fee2e2; }
 
 /* ---------- hero ---------- */
 

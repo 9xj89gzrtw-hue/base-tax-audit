@@ -43,6 +43,9 @@ const TOOLS = [
       required: ['address'],
       additionalProperties: false,
     },
+    // Machine-readable form of the promise in the description: this tool reads
+    // public chain state and never signs, sends or writes anything.
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
   {
     name: 'check_allowance',
@@ -59,11 +62,13 @@ const TOOLS = [
       required: ['owner', 'token', 'spender'],
       additionalProperties: false,
     },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
   {
     name: 'pricing',
     description: 'What the Pro licence costs, where the payment goes, and how it is verified.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
   },
 ];
 

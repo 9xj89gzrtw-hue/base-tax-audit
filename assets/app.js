@@ -409,14 +409,14 @@ function renderApprovals() {
         const isHigh = r.tier !== 'limited';
         let action;
         if (state.pro) {
-          action = `<button class="btn btn-sm btn-danger" data-revoke="${i}">Revoke</button>`;
+          action = `<button class="btn btn-sm btn-danger" data-revoke="${i}" title="Sends approve(spender, 0) from this wallet. Gas only, no fee to us.">Revoke in 1 Click</button>`;
         } else if (isHigh && !freeRevokeUsed) {
           freeRevokeUsed = true;
-          action = `<button class="btn btn-sm btn-danger" data-revoke="${i}">Revoke free</button>`;
+          action = `<button class="btn btn-sm btn-danger" data-revoke="${i}" title="Free, right from this page: one approve(spender, 0) transaction. Gas only.">Revoke in 1 Click <span class="pill pill-mute" style="margin-left:4px">free</span></button>`;
         } else if (isHigh) {
-          action = `<button class="btn btn-sm" data-unlock="1">Pro</button>`;
+          action = `<button class="btn btn-sm" data-unlock="1" title="One free revoke per scan. Pro removes the limit and adds batch revoke.">Revoke in 1 Click · Pro</button>`;
         } else {
-          action = `<button class="btn btn-sm btn-ghost" data-revoke="${i}">Revoke</button>`;
+          action = `<button class="btn btn-sm btn-ghost" data-revoke="${i}" title="Sends approve(spender, 0) from this wallet.">Revoke in 1 Click</button>`;
         }
         return `<tr>
           <td><span class="pill pill-accent">${esc(r.token)}</span></td>
@@ -442,15 +442,21 @@ function renderApprovals() {
   $('#approvalsnote').innerHTML = `
     <strong>${a.rows.length} active approval${a.rows.length === 1 ? '' : 's'}</strong> found by reading
     <code>allowance(owner, spender)</code> ${coverage}
-    ${high.length ? `Revoking sends <code>approve(spender, 0)</code> from this wallet — it costs gas and nothing else.` : ''}
+    ${high.length ? `Revoking sends <code>approve(spender, 0)</code> from this wallet — it costs gas and nothing else.
+    <b>Revoke in 1 Click</b> is free for the first high-risk row of every scan; the rest of the list and the
+    one-signature-per-row batch are what Pro is for.` : ''}
     An approval granted to a contract this wallet never interacted with directly is outside this check.`;
 
   $('#approvalsnote').classList.toggle('warn', !a.complete);
 
-  $('#batchrevoke').disabled = !state.pro;
+  $('#batchrevoke').disabled = false;
+  $('#batchrevoke').classList.toggle('is-locked', !state.pro);
   $('#batchrevoke').textContent = state.pro
-    ? `Revoke all ${high.length} high-risk`
-    : 'Batch revoke (Pro)';
+    ? `Batch Revoke All ${high.length} Risky Approvals`
+    : `Batch Revoke All Risky Approvals (Pro $9)`;
+  $('#batchrevoke').title = state.pro
+    ? 'One wallet prompt per approval, each approve(spender, 0). Reject any prompt to stop.'
+    : 'Pro unlocks the sequence: every risky approval revoked back to back. Free users still get one revoke in 1 click per scan.';
 }
 
 // ---------- render: activity ----------
@@ -965,11 +971,13 @@ function init() {
       return;
     }
     const unlock = e.target.closest('[data-unlock]');
-    if (unlock) startPurchase('Batch revoke and the rest of the risk list are part of Pro.');
+    if (unlock) startPurchase('Pro lifts the one-free-revoke limit and adds batch revoke for the whole list.');
   });
 
   $('#copycalldata').addEventListener('click', copyCalldata);
-  $('#batchrevoke').addEventListener('click', () => (state.pro ? batchRevoke() : startPurchase('Batch revoke is part of Pro.')));
+  $('#batchrevoke').addEventListener('click', () => (state.pro
+    ? batchRevoke()
+    : startPurchase('Batch revoke is Pro: one prompt per approval, every risky approval in the list, back to back. One revoke in 1 click stays free.')));
   $('#exportbtn').addEventListener('click', exportNow);
   $('#deepexportbtn').addEventListener('click', deepExport);
   $('#year').addEventListener('change', (e) => {

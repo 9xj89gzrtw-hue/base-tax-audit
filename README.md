@@ -14,14 +14,16 @@ Live: **https://9xj89gzrtw-hue.github.io/base-tax-audit/**
 - Paste any `0x` address and get live balances, recent activity and current ERC-20 allowances.
 - Flags **unlimited** approvals and prices what a spender could move right now.
 - Exports the first 50 ledger rows as CSV.
-- Revokes one approval from the browser wallet.
+- **Revoke in 1 Click** — one row, one wallet prompt, one `approve(spender, 0)`. Free for the
+  first high-risk approval of every scan.
 
 **Pro — 9 USDC on Base, once**
 
 - Up to 10,000 transactions across 2025–2026, paginated in full.
 - FIFO cost basis with realised gains and open lots.
 - Koinly CSV, CoinTracker CSV, a flat ledger CSV, and a four-sheet XLSX.
-- Batch revoke every high-risk approval in one sequence.
+- **Batch Revoke All Risky Approvals** — every high-risk row, back to back, one prompt each.
+- Revoke in 1 Click on every high-risk row, not just the first one of a scan.
 
 The licence is a Base transaction, verified by reading its receipt in the browser. Nothing is
 stored server-side because there is no server.
@@ -97,6 +99,9 @@ mcp/server.mjs          stdio MCP server over the same engine
 .well-known/x402        x402 discovery record (9 USDC, Base)
 .well-known/mcp.json    MCP server manifest
 tests/one-click-pay.mjs 18-assertion browser test of the purchase
+tests/revoke-one-click.mjs 17-assertion browser test of the revoke path
+tests/mcp-smoke.mjs    12-assertion stdio MCP protocol test
+package.json           npm metadata; `npx github:9xj89gzrtw-hue/base-tax-audit` runs the MCP server
 ```
 
 No build step, no dependencies, no bundler. Open `index.html` from any static host.
@@ -122,6 +127,28 @@ is the real page paying attention to the real chain.
 
 ---
 
+## Revoke in 1 Click, and where Pro starts
+
+Every row in the approvals table carries one action: **Revoke in 1 Click**. It sends exactly one
+transaction — `approve(spender, 0)` to the token contract, zero ETH attached — and waits for the
+receipt before it says anything worked.
+
+The split is stated on the page, in the button labels, not only in the pricing block:
+
+- the first high-risk approval of every scan is free, marked with a `free` pill; limited-value
+  rows stay free to revoke at any time;
+- further high-risk rows and the batch sequence are what the $9 licence buys;
+- a rejected prompt stops the batch instead of reporting success;
+- a transaction that reverts is reported as a revert, not as a revoke.
+
+`node tests/revoke-one-click.mjs` drives this in Chromium with a mock wallet and a mock chain:
+17 assertions on the calldata (`approve`, spender, literal zero allowance, no ETH), the free row,
+the Pro gate on the second row, the batch sending one transaction per risky approval, and a
+rejected prompt sending nothing. What is mocked is the wallet and the chain reads; the page, its
+modules, the click path and the calldata encoder are the real ones.
+
+---
+
 ## Machine-readable surfaces
 
 | Path | What it is |
@@ -130,10 +157,52 @@ is the real page paying attention to the real chain.
 | `/.well-known/mcp.json`, `mcp.json` | MCP server manifest for the local scanner. |
 | `mcp/server.mjs` | A working stdio MCP server (`scan_approvals`, `check_allowance`, `pricing`) that imports the same engine the page uses. No credentials, read-only, public RPC. |
 
+### Install the MCP server in one line
+
+The package is not on npm; it is installed straight from this repository, so there is nothing
+to publish and nothing to keep in sync. `npx` fetches the default branch, resolves the
+`base-wallet-guard` binary and speaks MCP on stdio.
+
+**Cursor** — `~/.cursor/mcp.json` (or *Settings → MCP → Add server*):
+
 ```json
 { "mcpServers": { "base-wallet-guard": {
-    "command": "node", "args": ["/abs/path/base-tax-audit/mcp/server.mjs"] } } }
+    "command": "npx", "args": ["-y", "github:9xj89gzrtw-hue/base-tax-audit"] } } }
 ```
+
+**Claude Desktop** — `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{ "mcpServers": { "base-wallet-guard": {
+    "command": "npx", "args": ["-y", "github:9xj89gzrtw-hue/base-tax-audit"] } } }
+```
+
+**OpenCode** — `~/.config/opencode/opencode.json`:
+
+```json
+{ "mcp": { "base-wallet-guard": {
+    "type": "local", "command": ["npx", "-y", "github:9xj89gzrtw-hue/base-tax-audit"], "enabled": true } } }
+```
+
+**Any client that takes a shell command** — the same thing, run by hand:
+
+```sh
+npx -y github:9xj89gzrtw-hue/base-tax-audit
+```
+
+**From a clone**, if you would rather pin the code you run:
+
+```sh
+git clone --depth 1 https://github.com/9xj89gzrtw-hue/base-tax-audit ~/.base-tax-audit
+node ~/.base-tax-audit/mcp/server.mjs
+```
+
+`node tests/mcp-smoke.mjs` starts the server the way a client does and asserts the handshake,
+the tool list, the `readOnlyHint` annotations, the `pricing` answer, a rejected malformed
+address, and the JSON-RPC error for an unknown method — 12 assertions, no network.
+
+The tools read public chain state and nothing else: no key, no account, no upload. The wallet
+address you pass in is the only thing that leaves the process.
 
 Measured on `0xB2Da8A3a86ee0b3C5334B9bC02E5A76FF0419020` on 2026-11-03: 253 allowance reads in
 **2.9 s**, one live unlimited USDC→Permit2 approval with 841.83 USDC behind it.
