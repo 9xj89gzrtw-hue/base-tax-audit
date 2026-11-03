@@ -188,6 +188,8 @@
     <span>Base Wallet Guard &amp; Tax CSV Studio</span>
     <span class="spacer"></span>
     <span>Data: Base RPC &amp; Blockscout. Runs entirely in the browser.</span>
+    <a href=".well-known/mcp.json">MCP</a>
+    <a href=".well-known/x402">x402</a>
     <a href="https://base.blockscout.com" target="_blank" rel="noopener">Explorer</a>
   </div>
 </footer>
@@ -195,23 +197,37 @@
 <div class="modal" id="paymodal" role="dialog" aria-modal="true">
   <div class="modal-card">
     <h3 id="modal-title">Unlock Pro</h3>
-    <p id="modal-body">Send $9 USDC on Base to the address below, then paste the transaction hash. It is verified on-chain here, so there is nothing to sign up for.</p>
+    <p id="modal-body">Pay $9 USDC on Base in one click. The licence is the transaction: it is verified on-chain here and re-checkable from any device.</p>
     <div class="kv">
       <div><span>Network</span><span>Base (8453)</span></div>
       <div><span>Asset</span><span>USDC</span></div>
       <div><span>Amount</span><span>9.00</span></div>
       <div><span>To</span><span id="payto">0x72Aa6edDE71B94f6b99c8e52EdC02B5C75F74d1a</span></div>
     </div>
-    <div class="field">
-      <label for="txhash">Transaction hash</label>
-      <input id="txhash" type="text" placeholder="0x…" spellcheck="false">
+    <div class="walletline" id="walletline">Checking for a browser wallet…</div>
+    <div class="modal-actions" style="margin-top:12px">
+      <button class="btn btn-primary btn-lg" id="modal-pay" style="width:100%">Pay $9.00 with wallet</button>
     </div>
-    <div class="modal-actions">
+    <div class="nosupport" id="nosupport">
+      No wallet extension found. Install
+      <a href="https://rabby.io" target="_blank" rel="noopener">Rabby</a>,
+      <a href="https://metamask.io" target="_blank" rel="noopener">MetaMask</a> or
+      <a href="https://www.coinbase.com/wallet" target="_blank" rel="noopener">Coinbase Wallet</a>,
+      then reload this page.
+    </div>
+    <details class="manualpay">
+      <summary>Paying from an exchange or another device?</summary>
+      <p>Send 9.00 USDC on Base to the address above, then paste the transaction hash. It is checked against the chain here, so nothing is taken on trust.</p>
+      <div class="field">
+        <label for="txhash">Transaction hash</label>
+        <input id="txhash" type="text" placeholder="0x…" spellcheck="false">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-accent" id="modal-verify">Verify and unlock</button>
+      </div>
+    </details>
+    <div class="modal-actions" style="margin-top:10px">
       <button class="btn" id="modal-cancel">Close</button>
-      <button class="btn btn-accent" id="modal-verify">Verify and unlock</button>
-    </div>
-    <div class="modal-actions" style="margin-top:8px">
-      <button class="btn btn-primary" id="modal-pay" style="width:100%">Pay with browser wallet</button>
     </div>
   </div>
 </div>

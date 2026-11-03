@@ -3,7 +3,7 @@
 // from any device, which is also why the receipt is the only thing stored.
 
 import { CHAIN, PAY_TO, PRO_PRICE_UNITS, PRO_PRICE_USDC } from './registry.js';
-import { encTransfer, getReceipt, rpc } from './rpc.js';
+import { encBalanceOf, encTransfer, getReceipt, rpc } from './rpc.js';
 
 const LICENSE_KEY = 'bwg.license.v1';
 const TRANSFER_TOPIC = '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
@@ -66,6 +66,37 @@ export async function payPro(from) {
     }],
   });
   return hash;
+}
+
+/**
+ * What the connected wallet actually has on Base, read from the chain before asking
+ * anyone to sign. A buyer who holds $3 of USDC should be told that here, not by their
+ * wallet after a failed send. Nulls mean "could not read", not "zero".
+ */
+export async function preflight(from) {
+  const [usdcHex, ethHex] = await Promise.all([
+    rpc('eth_call', [{ to: CHAIN.usdc, data: encBalanceOf(from) }, 'latest']).catch(() => null),
+    rpc('eth_getBalance', [from, 'latest']).catch(() => null),
+  ]);
+  let usdc = null;
+  let eth = null;
+  try {
+    if (usdcHex) usdc = BigInt(usdcHex);
+  } catch {
+    /* unreadable */
+  }
+  try {
+    if (ethHex) eth = BigInt(ethHex);
+  } catch {
+    /* unreadable */
+  }
+  return { usdc, eth };
+}
+
+/** A sentence a buyer can act on, or null when the wallet can pay. */
+export function shortfall({ usdc }) {
+  if (usdc === null || usdc >= PRO_PRICE_UNITS) return null;
+  return `This wallet holds ${(Number(usdc) / 1e6).toFixed(2)} USDC on Base. The licence costs ${PRO_PRICE_USDC}.00 — top up, then pay again.`;
 }
 
 /**

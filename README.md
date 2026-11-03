@@ -93,9 +93,50 @@ assets/lib/registry.js  verified spenders and tokens
 assets/lib/tax.js       ledger, FIFO, CSV formatters
 assets/lib/xlsx.js      dependency-free XLSX writer
 assets/lib/pay.js       wallet connect, payment, receipt verification
+mcp/server.mjs          stdio MCP server over the same engine
+.well-known/x402        x402 discovery record (9 USDC, Base)
+.well-known/mcp.json    MCP server manifest
+tests/one-click-pay.mjs 18-assertion browser test of the purchase
 ```
 
 No build step, no dependencies, no bundler. Open `index.html` from any static host.
+
+---
+
+## One-click purchase, and what it refuses to do
+
+The Pro button is the whole funnel: with a wallet present, one click asks the wallet for one
+USDC `transfer` and the receipt unlocks the export. There is no form, no sign-up, no email.
+
+Before the buyer signs, the page reads their Base balances and says what it finds:
+
+- below 9.00 USDC → the exact shortfall, and no signature is requested at all;
+- 0 ETH for gas → a warning, because a USDC transfer still needs a few cents of ETH;
+- no wallet extension → the sheet switches to a manual path (send from an exchange, paste the
+  hash) instead of a dead button.
+
+`node tests/one-click-pay.mjs` proves this end to end in Chromium: 18 assertions covering the
+calldata, the receipt decode, the stored licence, a rejected signature, an underfunded wallet
+and the no-wallet fallback. `window.ethereum` and four chain reads are mocked; everything else
+is the real page paying attention to the real chain.
+
+---
+
+## Machine-readable surfaces
+
+| Path | What it is |
+|---|---|
+| `/.well-known/x402` | x402 v2 discovery record: 9.00 USDC, Base `eip155:8453`, `payTo`, and how delivery is verified (receipt, not a session). |
+| `/.well-known/mcp.json`, `mcp.json` | MCP server manifest for the local scanner. |
+| `mcp/server.mjs` | A working stdio MCP server (`scan_approvals`, `check_allowance`, `pricing`) that imports the same engine the page uses. No credentials, read-only, public RPC. |
+
+```json
+{ "mcpServers": { "base-wallet-guard": {
+    "command": "node", "args": ["/abs/path/base-tax-audit/mcp/server.mjs"] } } }
+```
+
+Measured on `0xB2Da8A3a86ee0b3C5334B9bC02E5A76FF0419020` on 2026-11-03: 253 allowance reads in
+**2.9 s**, one live unlimited USDC→Permit2 approval with 841.83 USDC behind it.
 
 ---
 

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://modelcontextprotocol.io/schemas/server-manifest-2024-11-05.json",
+  "mcpVersion": "2024-11-05",
+  "name": "base-wallet-guard",
+  "version": "1.0.0",
+  "description": "Read-only Base mainnet ERC-20 allowance scanner. Answers 'what can move this wallet's tokens right now' with live eth_call reads instead of an indexer, and reports the exposed balance behind each live approval.",
+  "homepage": "https://9xj89gzrtw-hue.github.io/base-tax-audit/",
+  "repository": "https://github.com/9xj89gzrtw-hue/base-tax-audit",
+  "license": "MIT",
+  "transports": [
+    {
+      "type": "stdio",
+      "command": "node",
+      "args": ["mcp/server.mjs"],
+      "cwd": "repository root"
+    }
+  ],
+  "tools": [
+    {
+      "name": "scan_approvals",
+      "description": "Live allowances for a Base wallet against a verified registry of routers, aggregators, lending markets and marketplaces, plus the balances behind them.",
+      "readOnly": true,
+      "input": {
+        "address": "string (0x + 40 hex)",
+        "onlyUnlimited": "boolean (optional)"
+      }
+    },
+    {
+      "name": "check_allowance",
+      "description": "One allowance(owner, spender) read, for spenders outside the registry.",
+      "readOnly": true,
+      "input": {
+        "owner": "string",
+        "token": "string",
+        "spender": "string"
+      }
+    },
+    {
+      "name": "pricing",
+      "description": "Price, payment address and verification method for the Pro licence.",
+      "readOnly": true,
+      "input": {}
+    }
+  ],
+  "requirements": {
+    "network": "outbound HTTPS to public Base RPC endpoints",
+    "credentials": "none",
+    "packages": "none — the server imports the site's own modules",
+    "nodeVersion": ">=20"
+  },
+  "cost": {
+    "perCall": "free",
+    "licence": "9 USDC on Base (8453), one-time, optional"
+  },
+  "limits": "An approval granted to a contract the wallet never transacted with and that is not in the registry will not be listed. A full historical sweep needs an archive node, which no free public Base endpoint provides."
+}

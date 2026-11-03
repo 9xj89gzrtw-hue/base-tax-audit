@@ -1,0 +1,35 @@
+{
+  "x402Version": 2,
+  "type": "http",
+  "resource": "https://9xj89gzrtw-hue.github.io/base-tax-audit/#pricing",
+  "lastUpdated": "2026-11-03T14:00:00.000Z",
+  "accepts": [
+    {
+      "scheme": "exact",
+      "network": "eip155:8453",
+      "maxAmountRequired": "9000000",
+      "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "payTo": "0x72Aa6edDE71B94f6b99c8e52EdC02B5C75F74d1a",
+      "resource": "https://9xj89gzrtw-hue.github.io/base-tax-audit/#pricing",
+      "description": "Pro licence for Base Wallet Guard & Tax CSV Studio: full history to 10,000 transactions, FIFO cost basis, Koinly/CoinTracker/XLSX export and batch revoke. One payment, no account.",
+      "mimeType": "application/json",
+      "maxTimeoutSeconds": 900,
+      "extra": {
+        "name": "USD Coin",
+        "version": "2"
+      }
+    }
+  ],
+  "metadata": {
+    "product": "Base Wallet Guard & Tax CSV Studio",
+    "purchaseModel": "one-time",
+    "priceUsd": 9,
+    "settlementAsset": "USDC",
+    "chainId": 8453,
+    "delivery": "client-side",
+    "verification": "The buyer sends the transaction hash back to the page. The page reads the receipt from Base and requires an ERC-20 Transfer of at least 9000000 units of the asset above to payTo. The receipt hash is the licence; it re-verifies from any device.",
+    "noServerDispatch": "This is a static site. There is no paid HTTP endpoint to call and no session to mint: the transfer is the purchase, and the licence is the receipt.",
+    "code": "https://github.com/9xj89gzrtw-hue/base-tax-audit",
+    "freeTier": "Approval scan, last 50 transactions and a 50-row CSV export cost nothing and need no wallet."
+  }
+}

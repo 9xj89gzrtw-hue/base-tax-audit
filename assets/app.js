@@ -819,7 +819,36 @@ function openPay(reason) {
   $('#payto').textContent = PAY_TO;
   $('#paymodal').classList.add('on');
   $('#txhash').value = '';
-  $('#txhash').focus();
+
+  // Show what the wallet can actually do, instead of promising a button that will fail.
+  const hasWallet = pay.hasProvider();
+  $('#modal-pay').style.display = hasWallet ? '' : 'none';
+  $('#nosupport').style.display = hasWallet ? 'none' : '';
+  const line = $('#walletline');
+  const manual = $('.manualpay');
+  if (!hasWallet) {
+    line.textContent = 'No browser wallet detected in this browser.';
+    if (manual) manual.open = true;
+    return;
+  }
+  line.textContent = 'Checking your wallet on Base…';
+  (async () => {
+    try {
+      const from = await pay.connect();
+      const { usdc, eth } = await pay.preflight(from);
+      const parts = [shortAddr(from)];
+      parts.push(usdc === null ? 'USDC balance unreadable' : `${(Number(usdc) / 1e6).toFixed(2)} USDC`);
+      if (eth === 0n) parts.push('no ETH for gas');
+      line.textContent = parts.join(' · ');
+      const gap = pay.shortfall({ usdc });
+      if (gap) {
+        line.textContent += ' — short of the price';
+        $('#modal-body').textContent = gap;
+      }
+    } catch (e) {
+      line.textContent = 'Wallet connected, but it did not share an account.';
+    }
+  })();
 }
 
 function closePay() {
@@ -854,15 +883,36 @@ async function payWithWallet() {
     toast('No browser wallet detected. Send 9 USDC on Base manually, then paste the hash.');
     return;
   }
+  const btn = $('#modal-pay');
+  btn.disabled = true;
   try {
     const from = await pay.connect();
+    const { usdc, eth } = await pay.preflight(from);
+    const gap = pay.shortfall({ usdc });
+    if (gap) {
+      toast(gap);
+      if ($('#paymodal').classList.contains('on')) $('#modal-body').textContent = gap;
+      return;
+    }
+    if (eth === 0n) toast('No ETH on Base for gas — the wallet may refuse this transfer.');
     const hash = await pay.payPro(from);
     toast('Payment sent. Confirming on Base.');
     await waitForReceipt(hash);
     await unlockWith(hash);
   } catch (e) {
     toast(e.message || 'Payment cancelled');
+  } finally {
+    btn.disabled = false;
   }
+}
+
+/**
+ * The pricing button is the whole funnel: one click, one signature, no form.
+ * The sheet only appears when there is no wallet, or when a gated feature asks for Pro.
+ */
+function startPurchase(reason) {
+  if (reason || !pay.hasProvider()) return openPay(reason);
+  return payWithWallet();
 }
 
 function applyLicense() {
@@ -915,23 +965,23 @@ function init() {
       return;
     }
     const unlock = e.target.closest('[data-unlock]');
-    if (unlock) openPay('Batch revoke and the rest of the risk list are part of Pro.');
+    if (unlock) startPurchase('Batch revoke and the rest of the risk list are part of Pro.');
   });
 
   $('#copycalldata').addEventListener('click', copyCalldata);
-  $('#batchrevoke').addEventListener('click', () => (state.pro ? batchRevoke() : openPay('Batch revoke is part of Pro.')));
+  $('#batchrevoke').addEventListener('click', () => (state.pro ? batchRevoke() : startPurchase('Batch revoke is part of Pro.')));
   $('#exportbtn').addEventListener('click', exportNow);
   $('#deepexportbtn').addEventListener('click', deepExport);
   $('#year').addEventListener('change', (e) => {
     state.year = e.target.value;
     renderTax();
   });
-  $('#buybtn').addEventListener('click', () => openPay());
+  $('#buybtn').addEventListener('click', () => startPurchase());
   $('#freefocus').addEventListener('click', () => {
     $('#addr').focus();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
-  $('#licensestate').addEventListener('click', () => (state.pro ? toast('Pro is active on this device.') : openPay()));
+  $('#licensestate').addEventListener('click', () => (state.pro ? toast('Pro is active on this device.') : startPurchase()));
 
   $('#modal-cancel').addEventListener('click', closePay);
   $('#modal-verify').addEventListener('click', () => unlockWith($('#txhash').value.trim()));
