@@ -140,7 +140,7 @@ async function installChainStubs(page, { usdc = 50_000_000n, eth = 2_000_000_000
 }
 
 const server = await serve();
-const base = `http://127.0.0.1:${server.address().port}/`;
+const base = process.env.SITE || `http://127.0.0.1:${server.address().port}/`;
 await mkdir(SHOTS, { recursive: true });
 
 const browser = await chromium.launch({ headless: !HEADED });
